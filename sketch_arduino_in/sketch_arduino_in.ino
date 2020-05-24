@@ -6,7 +6,7 @@
 int PIN_SERIAL_RX = 2;
 int PIN_SERIAL_TX = 3;
 
-//                                    10m 15m 20m 40m 80m 160m  
+/*                                    10m 15m 20m 40m 80m 160m  */
 int PIN_RIG_BAND[N_RIGS][N_BANDS] = {{10, 11, 12, 13, 14, 15},   // RIG1 
                                      {16, 17, 18, 19, 20, 21},   // RIG2
                                      {22, 23, 24, 25, 26, 27},   // RIG3
@@ -27,8 +27,9 @@ int states[N_RIGS][N_BANDS];
 
 //=====[ Aux functions ]===========================================================================================
 void update_states_from_rigs(){
-  // This function reads the different pins and updates the states
-  // matrix.
+  /* This function reads the different pins and updates the states
+   * matrix.
+   */
   for (int i = 0; i < N_BANDS; ++i) { 
     for (int j = 0; j < N_RIGS; ++j) {
       if (digitalRead(PIN_RIG_BAND[i][j]) == HIGH){
@@ -43,10 +44,11 @@ void update_states_from_rigs(){
 
 
 bool check_states(){
-  // This function makes sure that there is only one rig per band. To do this
-  // it computes the sum of the elements in each column and verifies 
-  // that it is always equal or smaller than 1.
-  // If this is the case it returns true, otherwise false.
+  /* This function makes sure that there is only one rig per band. To do this
+   * it computes the sum of the elements in each column and verifies 
+   * that it is always equal or smaller than 1.
+   * If this is the case it returns true, otherwise false.
+   */
   bool is_fine = true;
 
   // Not more than one rig on the same band
@@ -69,26 +71,35 @@ bool check_states(){
 
 
 void send_states_through_serial(){
-  // This function sends the states through the serial port for
-  // the out arduino to read them and take action
+  /* This function sends the states through the serial port for
+   * the out arduino to read them and take action
+   *Flattens the 2D array into a String with start and end markers
+   */
+  // Declare string with start marker
+  String transmitted_state = String("<");
 
-  // Transform the states matrix to the array to be sent
-  byte transmitted_state[N_RIGS*N_BANDS];
+  // Attach the elements of the array to the string
   for (int i = 0; i < N_RIGS; i++) {
     for (int j = 0; j < N_BANDS; j++) {
-      transmitted_state[N_RIGS*i + N_BANDS] = byte(states[i][j]);
+      transmitted_state = String(transmitted_state + char(states[i][j]));
     }
   }
+
+  // Attach the end marker
+  transmitted_state = String(transmitted_state + ">");
+
+  // Convert String to array of chars to properly send it via serial
+  char transmitted_state_char[N_RIGS * N_BANDS + 2] = { 0 };
+  transmitted_state.toCharArray(transmitted_state_char, N_RIGS * N_BANDS + 2);
   
-  // Send it through the serial
-  if (board_serial.available()) {
-    board_serial.write(transmitted_state, N_RIGS*N_BANDS);
+  // Send array of chars through the serial
+  if (board_serial.availableForWrite() > (N_RIGS + N_BANDS + 2)) {
+    board_serial.write(transmitted_state_char);
   }
 }
 
 
 //=====[ Main functions ]===========================================================================================
-// Setup function
 void setup() {
 
   // Set the data rate for the SoftwareSerial port
@@ -107,7 +118,7 @@ void setup() {
   pinMode(PIN_BUZZ, OUTPUT);
 }
 
-// Loop function
+
 void loop() {
   // Check radio states
   update_states_from_rigs();

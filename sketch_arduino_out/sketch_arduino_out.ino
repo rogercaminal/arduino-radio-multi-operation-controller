@@ -2,6 +2,10 @@
 #define N_RIGS 6
 #define N_BANDS 6
 
+boolean newData = false;
+const byte numChars = N_RIGS * N_BANDS;
+char receivedChars[numChars];
+
 //=====[ Settings ]===========================================================================================
 int PIN_SERIAL_RX = 2;
 int PIN_SERIAL_TX = 3;
@@ -25,8 +29,9 @@ int states[N_RIGS][N_BANDS];
 
 //=====[ Aux functions ]===========================================================================================
 void update_output_from_states(){
-  // This function reads the different pins and updates the states
-  // matrix.
+  /* This function reads the different pins and updates the states
+   * matrix.
+   */
   for (int i = 0; i < N_BANDS; ++i) { 
     for (int j = 0; j < N_RIGS; ++j) {
       if (states[i][j] == 1){
@@ -41,22 +46,47 @@ void update_output_from_states(){
 
 
 void get_states_from_serial(){
-  // This function receives the states from the serial port
+  /* This function receives the states from the serial port
+   */
 
-/*
-  // Transform the states matrix to the array to be sent
-  byte transmitted_state[N_RIGS*N_BANDS];
+  // Read the buffer and store it into chars
+  static boolean recvInProgress = false;
+  static byte ndx = 0;
+  char startMarker = '<';
+  char endMarker = '>';
+  char rc;
+  
+  while (Serial.available() > 0 && newData == false) {
+    rc = Serial.read();
+
+      if (recvInProgress == true) {
+        if (rc != endMarker) {
+          receivedChars[ndx] = rc;
+          ndx++;
+          if (ndx >= numChars) {
+            ndx = numChars - 1;
+          }
+        }
+        else {
+          receivedChars[ndx] = '\0'; // terminate the string
+          recvInProgress = false;
+          ndx = 0;
+          newData = true;
+        }
+      }
+
+      else if (rc == startMarker) {
+        recvInProgress = true;
+      }
+    }
+
+    // Transform the array of chars to the states matrix
   for (int i = 0; i < N_RIGS; i++) {
     for (int j = 0; j < N_BANDS; j++) {
-      transmitted_state[N_RIGS*i + N_BANDS] = byte(states[i][j]);
+      states[i][j] = atoi(receivedChars[N_RIGS*i + j]);
     }
   }
-  
-  // Send it through the serial
-  if (board_serial.available()) {
-    board_serial.write(transmitted_state, N_RIGS*N_BANDS);
-  }
-  */
+
 }
 
 
@@ -80,6 +110,7 @@ void setup() {
 // Loop function
 void loop() {
   // Read the serial
+  get_states_from_serial();
   
   // Update the output states
   update_output_from_states();
